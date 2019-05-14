@@ -3,6 +3,8 @@ import { game, playerTemplate } from "./main";
 import { Map } from "./map";
 import { nullTile, floorTile, wallTile, doorTile, Tile } from "./tile";
 import { Entity } from "./entity";
+// @ts-ignore
+import { vsprintf } from "sprintf-js";
 
 export interface Screen {
   map?: Map | null;
@@ -119,6 +121,16 @@ export const screen: ScreenObject = {
           );
         }
       });
+      const messages = this.player.getMessages();
+      let messageY = 0;
+      messages.forEach((message: string) => {
+        setTimeout(() => {
+          display.drawText(0, messageY, "%c{white}%b{black}" + message);
+          messageY++;
+        }, 0);
+      });
+      const stats = `%c{white}%b{black}HP: ${this.player.getHp()}/${this.player.getMaxHp()}`;
+      display.drawText(0, screenHeight, stats);
     },
     handleInput: function(inputType, inputData) {
       if (inputType === "keydown") {

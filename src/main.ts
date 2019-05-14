@@ -4,9 +4,15 @@ import {
   moveable,
   playerActor,
   fungusActor,
-  simpleAttacker,
-  destructible
+  attacker,
+  destructible,
+  messageRecipient,
+  Mixin
 } from "./mixins";
+// @ts-ignore
+import { vsprintf } from "sprintf-js";
+import { Map } from "./map";
+import { Entity } from "./entity";
 
 export class Game {
   display: Display | null;
@@ -26,7 +32,7 @@ export class Game {
   init = function() {
     this.display = new Display({
       width: this.screenWidth,
-      height: this.screenHeight,
+      height: this.screenHeight + 1,
       fontSize: this.fontSize
     });
     const game = this;
@@ -56,7 +62,6 @@ export class Game {
   getScreenHeight = function() {
     return this.screenHeight;
   };
-
   switchScreen = function(screen: Screen) {
     if (this.currentScreen) {
       this.currentScreen.exit();
@@ -68,21 +73,51 @@ export class Game {
       this.refresh();
     }
   };
+  sendMessage = function(recipient: Mixin, message: string, args?: string[]) {
+    if (recipient.hasMixin(messageRecipient)) {
+      if (args) {
+        message = vsprintf(message, args);
+      }
+      recipient.receiveMessage(message);
+    }
+  };
+  sendMessageNearby = function(
+    map: Map,
+    centerX: number,
+    centerY: number,
+    message: string,
+    args: string[]
+  ) {
+    if (args) {
+      message = vsprintf(message, args);
+    }
+    const entities = map.getEntitiesWithinRadius(centerX, centerY, 5);
+    entities.forEach(entity => {
+      if (entity.hasMixin(messageRecipient)) {
+        // @ts-ignore
+        entity.receiveMessage(message);
+      }
+    });
+  };
 }
 
 export const playerTemplate = {
   character: "@",
   foreground: "white",
   background: "black",
-  mixins: [moveable, playerActor, simpleAttacker, destructible],
+  maxHp: 40,
+  attackValue: 10,
+  mixins: [moveable, playerActor, attacker, destructible, messageRecipient],
   name: "player",
   x: 0,
   y: 0
 };
 
 export const fungusTemplate = {
+  name: "radroach",
   character: "r",
   foreground: "goldenrod",
+  maxHp: 10,
   mixins: [fungusActor, destructible]
 };
 

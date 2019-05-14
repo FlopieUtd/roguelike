@@ -69,6 +69,9 @@ export class Map {
     entity.setY(position.y);
     this.addEntity(entity);
   };
+  isEmptyFloor = function(x: number, y: number) {
+    return this.getTile(x, y) == floorTile && !this.getEntityAt(x, y);
+  };
   removeEntity = function(entity: Entity) {
     for (let i = 0; i < this.entities.length; i++) {
       if (this.entities[i] === entity) {
@@ -79,6 +82,28 @@ export class Map {
     if (entity.hasMixin("Actor")) {
       this.scheduler.remove(entity);
     }
+  };
+  getEntitiesWithinRadius = function(
+    centerX: number,
+    centerY: number,
+    radius: number
+  ) {
+    const results: Entity[] = [];
+    const leftX = centerX - radius;
+    const rightX = centerX + radius;
+    const topY = centerY - radius;
+    const bottomY = centerY + radius;
+    this.entities.forEach((entity: Entity) => {
+      if (
+        entity.getX() >= leftX &&
+        entity.getX() <= rightX &&
+        entity.getY() >= topY &&
+        entity.getY() >= bottomY
+      ) {
+        results.push(entity);
+      }
+    }, this);
+    return results;
   };
   getEngine = function() {
     return this.engine;
@@ -93,8 +118,5 @@ export class Map {
       }
     }
     return false;
-  };
-  isEmptyFloor = function(x: number, y: number) {
-    return this.getTile(x, y) == floorTile && !this.getEntityAt(x, y);
   };
 }

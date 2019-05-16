@@ -5,6 +5,7 @@ export class Entity extends Glyph {
   name: string;
   x: number;
   y: number;
+  z: number;
   map: Map | null;
   attachedMixins: object;
   attachedMixinGroups: object;
@@ -13,6 +14,7 @@ export class Entity extends Glyph {
     name?: string;
     x?: number;
     y?: number;
+    z?: number;
     mixins: any[];
     character?: string;
     foreground?: string;
@@ -21,11 +23,12 @@ export class Entity extends Glyph {
   }) {
     super(props);
 
-    const { name, x, y, mixins } = props;
+    const { name, x, y, z, mixins } = props;
 
     this.name = name || "";
     this.x = x || 0;
     this.y = y || 0;
+    this.z = z || 0;
     this.map = null;
     this.attachedMixins = {};
     this.attachedMixinGroups = {};
@@ -70,6 +73,17 @@ export class Entity extends Glyph {
   };
   getY = function() {
     return this.y;
+  };
+  setZ = function(z: number) {
+    this.z = z;
+  };
+  getZ = function() {
+    return this.z || 0;
+  };
+  setPosition = function(x: number, y: number, z: number) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
   };
   hasMixin = function(obj: any) {
     if (typeof obj === "object") {

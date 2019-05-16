@@ -1,6 +1,6 @@
 import { Map } from "./map";
 import { game } from "./main";
-import { Entity } from "./entity";
+import { stairsUpTile, stairsDownTile } from "./tile";
 
 export interface Mixin {
   [key: string]: any;
@@ -8,10 +8,24 @@ export interface Mixin {
 
 export const moveable = {
   name: "Moveable",
-  tryMove: function(x: number, y: number, map: Map) {
-    const tile = map.getTile(x, y);
-    const target = map.getEntityAt(x, y);
-    if (target) {
+  tryMove: function(x: number, y: number, z: number, map: Map) {
+    const tile = map.getTile(x, y, this.getZ());
+    const target = map.getEntityAt(x, y, this.getZ());
+    if (z < this.getZ()) {
+      if (tile !== stairsUpTile) {
+        game.sendMessage(this, "You can't go up here!");
+      } else {
+        game.sendMessage(this, `You ascend to level ${z}`);
+        this.setPosition(x, y, z);
+      }
+    } else if (z > this.getZ()) {
+      if (tile !== stairsDownTile) {
+        game.sendMessage(this, "You can't go down here!");
+      } else {
+        game.sendMessage(this, `You descend to level ${z}`);
+        this.setPosition(x, y, z);
+      }
+    } else if (target) {
       if (this.hasMixin("Attacker")) {
         this.attack(target);
         return true;
@@ -19,8 +33,7 @@ export const moveable = {
         return false;
       }
     } else if (tile.getIsWalkable()) {
-      this.x = x;
-      this.y = y;
+      this.setPosition(x, y, z);
       return true;
     }
     return false;
@@ -47,7 +60,7 @@ export const destructible = {
   takeDamage: function(attacker: Mixin, damage: number) {
     this.hp -= damage;
     if (this.hp <= 0) {
-      game.sendMessage(attacker, "You kill the %s!", [this.getName()]);
+      game.sendMessage(attacker, `You kill the ${this.getName()}!`);
       game.sendMessage(this, "You die!");
       this.getMap().removeEntity(this);
     }
@@ -71,14 +84,14 @@ export const attacker = {
       const max = Math.max(0, attack - defense);
       const damage = 1 + Math.floor(Math.random() * max);
 
-      game.sendMessage(this, "You strike the %s for %d damage!", [
-        target.getName(),
-        damage
-      ]);
-      game.sendMessage(target, "The %s strikes you for %d damage!", [
-        this.getName(),
-        damage
-      ]);
+      game.sendMessage(
+        this,
+        `You strike the ${target.getName()} for ${damage} damage!`
+      );
+      game.sendMessage(
+        target,
+        `The ${this.getName()} strikes you for ${damage} damage!`
+      );
 
       target.takeDamage(this, damage);
     }
@@ -116,5 +129,17 @@ export const messageRecipient = {
   },
   clearMessages: function() {
     this.messages = [];
+  }
+};
+
+export const sight = {
+  name: "Sight",
+  groupName: "Sight",
+  init: function(template: any) {
+    const { sightRadius } = template;
+    this.sightRadius = sightRadius || 5;
+  },
+  getSightRadius: function() {
+    return this.sightRadius;
   }
 };

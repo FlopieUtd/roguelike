@@ -3,7 +3,6 @@ import {
   Tile,
   wallTile,
   floorTile,
-  doorTile,
   stairsDownTile,
   stairsUpTile
 } from "./tile";
@@ -44,9 +43,9 @@ export class Builder {
       map.push([]);
     }
     const generator = new RotMap.Uniform(this.width, this.height, {
-      roomDugPercentage: 0.15,
-      roomWidth: [5, 10],
-      roomHeight: [5, 10]
+      roomDugPercentage: 0.2,
+      roomWidth: [4, 10],
+      roomHeight: [4, 10]
     });
     generator.create(function(x, y, v) {
       if (v === 1) {
@@ -55,13 +54,7 @@ export class Builder {
         map[x][y] = floorTile;
       }
     });
-    const drawDoor = function(x: number, y: number) {
-      map[x][y] = doorTile;
-    };
     this.rooms = generator.getRooms();
-    this.rooms.forEach(room => {
-      room.getDoors(drawDoor);
-    });
     return map;
   };
 

@@ -37,15 +37,6 @@ export const wallTile = new Tile(
     blocksLight: true
   })
 );
-export const doorTile = new Tile(
-  new Glyph({
-    character: "=",
-    foreground: "#0c9981",
-    background: "#02131e",
-    isWalkable: true,
-    blocksLight: false
-  })
-);
 export const stairsUpTile = new Tile(
   new Glyph({
     character: "<",

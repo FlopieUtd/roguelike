@@ -1,5 +1,7 @@
 import { Glyph } from "./glyph";
 import { Map } from "./map";
+import { stairsUpTile, stairsDownTile } from "./tile";
+import { game } from "./main";
 
 export class Entity extends Glyph {
   name: string;
@@ -49,7 +51,37 @@ export class Entity extends Glyph {
       }, this);
     }
   }
-
+  tryMove = function(x: number, y: number, z: number) {
+    const map = this.getMap();
+    const tile = map.getTile(x, y, this.getZ());
+    const target = map.getEntityAt(x, y, this.getZ());
+    if (z < this.getZ()) {
+      if (tile !== stairsUpTile) {
+        game.sendMessage(this, "You can't go up here!");
+      } else {
+        game.sendMessage(this, `You ascend to level ${z}`);
+        this.setPosition(x, y, z);
+      }
+    } else if (z > this.getZ()) {
+      if (tile !== stairsDownTile) {
+        game.sendMessage(this, "You can't go down here!");
+      } else {
+        game.sendMessage(this, `You descend to level ${z}`);
+        this.setPosition(x, y, z);
+      }
+    } else if (target) {
+      if (this.hasMixin("Attacker")) {
+        this.attack(target);
+        return true;
+      } else {
+        return false;
+      }
+    } else if (tile.getIsWalkable()) {
+      this.setPosition(x, y, z);
+      return true;
+    }
+    return false;
+  };
   setName = function(name: string) {
     this.name = name;
   };
@@ -81,9 +113,15 @@ export class Entity extends Glyph {
     return this.z || 0;
   };
   setPosition = function(x: number, y: number, z: number) {
+    const oldX = this.x;
+    const oldY = this.y;
+    const oldZ = this.z;
     this.x = x;
     this.y = y;
     this.z = z;
+    if (this.map) {
+      this.map.updateEntityPosition(this, oldX, oldY, oldZ);
+    }
   };
   hasMixin = function(obj: any) {
     if (typeof obj === "object") {

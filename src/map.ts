@@ -2,14 +2,14 @@ import { nullTile, floorTile } from "./tile";
 import { Entity } from "./entity";
 import { Scheduler, Engine, FOV } from "rot-js";
 import Simple from "rot-js/lib/scheduler/simple";
-import { fungusTemplate } from "./main";
+import { radroachTemplate, moleratTemplate, superMutantTemplate } from "./main";
 
 export class Map {
   tiles: any[];
   width: number;
   height: number;
   depth: number;
-  entities: Entity[];
+  entities: { [key: string]: Entity };
   scheduler: Simple;
   engine: any;
   player: Entity;
@@ -20,7 +20,7 @@ export class Map {
     this.depth = tiles.length;
     this.width = tiles[0].length;
     this.height = tiles[0][0].length;
-    this.entities = [];
+    this.entities = {};
     this.scheduler = new Scheduler.Simple();
     this.fov = [];
     this.setupFov();
@@ -31,11 +31,20 @@ export class Map {
     this.addEntityAtRandomPosition(this.player, 0);
     for (let z = 0; z < this.depth; z++) {
       for (let i = 0; i < 10; i++) {
-        this.addEntityAtRandomPosition(new Entity(fungusTemplate), z);
+        this.addEntityAtRandomPosition(new Entity(radroachTemplate), z);
+      }
+    }
+    for (let z = 0; z < this.depth; z++) {
+      for (let i = 0; i < 4; i++) {
+        this.addEntityAtRandomPosition(new Entity(moleratTemplate), z);
+      }
+    }
+    for (let z = 0; z < this.depth; z++) {
+      for (let i = 0; i < 1; i++) {
+        this.addEntityAtRandomPosition(new Entity(superMutantTemplate), z);
       }
     }
   }
-
   getWidth = function() {
     return this.width;
   };
@@ -69,18 +78,8 @@ export class Map {
     return { x: x, y: y, z: z };
   };
   addEntity = function(entity: Entity) {
-    if (
-      entity.getX() < 0 ||
-      entity.getX() > this.width ||
-      entity.getY() < 0 ||
-      entity.getY() > this.height ||
-      entity.getZ() < 0 ||
-      entity.getZ() >= this.depth
-    ) {
-      throw new Error("Adding entity out of bounds");
-    }
     entity.setMap(this);
-    this.entities.push(entity);
+    this.updateEntityPosition(entity);
     if (entity.hasMixin("Actor")) {
       this.scheduler.add(entity, true);
     }
@@ -92,15 +91,41 @@ export class Map {
     entity.setZ(position.z);
     this.addEntity(entity);
   };
+  updateEntityPosition = function(
+    entity: Entity,
+    oldX: number,
+    oldY: number,
+    oldZ: number
+  ) {
+    if (oldX) {
+      const oldKey = `${oldX},${oldY},${oldZ}`;
+      if (this.entities[oldKey] === entity) {
+        delete this.entities[oldKey];
+      }
+    }
+    if (
+      entity.getX() < 0 ||
+      entity.getX() > this.width ||
+      entity.getY() < 0 ||
+      entity.getY() > this.height ||
+      entity.getZ() < 0 ||
+      entity.getZ() >= this.depth
+    ) {
+      throw new Error("Entity's positoin is out of bounds");
+    }
+    const key = `${entity.getX()},${entity.getY()},${entity.getZ()}`;
+    if (this.entities[key]) {
+      throw new Error("Tried to add an entity at an occupied position");
+    }
+    this.entities[key] = entity;
+  };
   isEmptyFloor = function(x: number, y: number, z: number) {
     return this.getTile(x, y, z) == floorTile && !this.getEntityAt(x, y, z);
   };
   removeEntity = function(entity: Entity) {
-    for (let i = 0; i < this.entities.length; i++) {
-      if (this.entities[i] === entity) {
-        this.entities.splice(i, 1);
-        break;
-      }
+    const key = `${entity.getX()},${entity.getY()},${entity.getZ()}`;
+    if (this.entities[key]) {
+      delete this.entities[key];
     }
     if (entity.hasMixin("Actor")) {
       this.scheduler.remove(entity);
@@ -137,16 +162,7 @@ export class Map {
     return this.entities;
   };
   getEntityAt = function(x: number, y: number, z: number) {
-    for (let i = 0; i < this.entities.length; i++) {
-      if (
-        this.entities[i].getX() === x &&
-        this.entities[i].getY() === y &&
-        this.entities[i].getZ() === z
-      ) {
-        return this.entities[i];
-      }
-    }
-    return false;
+    return this.entities[`${x},${y},${z}`];
   };
   setupFov = function() {
     const map = this;

@@ -1,14 +1,13 @@
 import { Display } from "rot-js";
 import { screen, Screen } from "./screens";
 import {
-  moveable,
   playerActor,
-  fungusActor,
   attacker,
   destructible,
   messageRecipient,
   Mixin,
-  sight
+  sight,
+  wanderActor
 } from "./mixins";
 import { Map } from "./map";
 
@@ -111,29 +110,43 @@ export const playerTemplate = {
   character: "@",
   foreground: "#60abf2",
   background: "black",
-  maxHp: 40,
+  maxHp: 1,
   attackValue: 10,
   sightRadius: 6,
-  mixins: [
-    moveable,
-    playerActor,
-    attacker,
-    destructible,
-    messageRecipient,
-    sight
-  ],
+  mixins: [playerActor, attacker, destructible, messageRecipient, sight],
   name: "player",
   x: 0,
   y: 0,
   z: 0
 };
 
-export const fungusTemplate = {
+export const radroachTemplate = {
   name: "radroach",
   character: "r",
-  foreground: "goldenrod",
+  foreground: "brown",
   maxHp: 10,
-  mixins: [fungusActor, destructible]
+  movability: 0.3,
+  mixins: [wanderActor, destructible, attacker]
+};
+
+export const moleratTemplate = {
+  name: "molerat",
+  character: "m",
+  foreground: "goldenrod",
+  maxHp: 20,
+  attackValue: 4,
+  movability: 0.8,
+  mixins: [wanderActor, destructible, attacker]
+};
+
+export const superMutantTemplate = {
+  name: "super mutant",
+  character: "S",
+  foreground: "lime",
+  maxHp: 80,
+  attackValue: 12,
+  movability: 0.8,
+  mixins: [wanderActor, destructible, attacker]
 };
 
 export const game = new Game();

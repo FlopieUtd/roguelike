@@ -1,44 +1,11 @@
 import { Map } from "./map";
 import { game } from "./main";
 import { stairsUpTile, stairsDownTile } from "./tile";
+import { screen } from "./screens";
 
 export interface Mixin {
   [key: string]: any;
 }
-
-export const moveable = {
-  name: "Moveable",
-  tryMove: function(x: number, y: number, z: number, map: Map) {
-    const tile = map.getTile(x, y, this.getZ());
-    const target = map.getEntityAt(x, y, this.getZ());
-    if (z < this.getZ()) {
-      if (tile !== stairsUpTile) {
-        game.sendMessage(this, "You can't go up here!");
-      } else {
-        game.sendMessage(this, `You ascend to level ${z}`);
-        this.setPosition(x, y, z);
-      }
-    } else if (z > this.getZ()) {
-      if (tile !== stairsDownTile) {
-        game.sendMessage(this, "You can't go down here!");
-      } else {
-        game.sendMessage(this, `You descend to level ${z}`);
-        this.setPosition(x, y, z);
-      }
-    } else if (target) {
-      if (this.hasMixin("Attacker")) {
-        this.attack(target);
-        return true;
-      } else {
-        return false;
-      }
-    } else if (tile.getIsWalkable()) {
-      this.setPosition(x, y, z);
-      return true;
-    }
-    return false;
-  }
-};
 
 export const destructible = {
   name: "Destructible",
@@ -61,8 +28,33 @@ export const destructible = {
     this.hp -= damage;
     if (this.hp <= 0) {
       game.sendMessage(attacker, `You kill the ${this.getName()}!`);
-      game.sendMessage(this, "You die!");
-      this.getMap().removeEntity(this);
+      if (this.hasMixin(playerActor)) {
+        this.act();
+      } else {
+        this.getMap().removeEntity(this);
+      }
+    }
+  }
+};
+
+export const wanderActor = {
+  name: "WanderActor",
+  groupName: "Actor",
+  init: function(template: any) {
+    const { movability } = template;
+    this.movability = movability;
+  },
+  getMovability: function() {
+    return this.movability;
+  },
+  act: function() {
+    if (Math.random() < this.movability) {
+      const moveOffset = Math.round(Math.random()) === 1 ? 1 : -1;
+      if (Math.round(Math.random()) === 1) {
+        this.tryMove(this.getX() + moveOffset, this.getY(), this.getZ());
+      } else {
+        this.tryMove(this.getX(), this.getY() + moveOffset, this.getZ());
+      }
     }
   }
 };
@@ -102,18 +94,18 @@ export const playerActor = {
   name: "PlayerActor",
   groupName: "Actor",
   act: function() {
+    if (this.getHp() < 1) {
+      console.log("die");
+      screen.playScreen.setGameOver(true);
+      console.log(screen.playScreen.gameOver);
+      game.sendMessage(this, "You have died... Press [Enter] to continue!");
+    }
     game.refresh();
     this.getMap()
       .getEngine()
       .lock();
     this.clearMessages();
   }
-};
-
-export const fungusActor = {
-  name: "FungusActor",
-  groupName: "Actor",
-  act: function() {}
 };
 
 export const messageRecipient = {

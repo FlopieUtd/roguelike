@@ -9,11 +9,13 @@ export interface Screen {
   centerX?: number;
   centerY?: number;
   player?: any;
+  gameOver?: boolean;
   move?: (x: number, y: number, z: number) => void;
   enter: () => void;
   exit: () => void;
   render: (display: Display) => void;
   handleInput: (inputType: string, inputData: KeyboardEvent) => void;
+  setGameOver?: (gameOver: boolean) => void;
 }
 
 export interface ScreenObject {
@@ -43,11 +45,12 @@ export const screen: ScreenObject = {
   playScreen: {
     map: null,
     player: null,
+    gameOver: false,
     move: function(dX: number, dY: number, dZ: number) {
       const newX = this.player.getX() + dX;
       const newY = this.player.getY() + dY;
       const newZ = this.player.getZ() + dZ;
-      this.player.tryMove(newX, newY, newZ, this.map);
+      this.player.tryMove(newX, newY, newZ);
     },
     enter: function() {
       console.info("Entered play screen");
@@ -107,7 +110,8 @@ export const screen: ScreenObject = {
         }
       }
       const entities = this.map.getEntities();
-      entities.forEach((entity: Entity) => {
+      for (let key in entities) {
+        const entity = entities[key];
         if (
           entity.getX() >= topLeftX &&
           entity.getY() >= topLeftY &&
@@ -125,7 +129,7 @@ export const screen: ScreenObject = {
             );
           }
         }
-      });
+      }
       const messages = this.player.getMessages();
       let messageY = 0;
       messages.forEach((message: string) => {
@@ -140,6 +144,15 @@ export const screen: ScreenObject = {
       display.drawText(screenWidth - 8, screenHeight, levelStats);
     },
     handleInput: function(inputType, inputData) {
+      console.log(inputData.keyCode);
+
+      if (this.gameOver) {
+        console.log("game over", console.log());
+        if (inputType === "keydown" && inputData.keyCode === 13) {
+          game.switchScreen(screen.loseScreen);
+        }
+        return;
+      }
       if (inputType === "keydown") {
         if (inputData.code === "Enter") {
           game.switchScreen(screen.winScreen);
@@ -171,6 +184,9 @@ export const screen: ScreenObject = {
         }
         this.map.getEngine().unlock();
       }
+    },
+    setGameOver: function(gameOver: boolean) {
+      this.gameOver = gameOver;
     }
   },
   winScreen: {

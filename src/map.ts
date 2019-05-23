@@ -2,7 +2,9 @@ import { nullTile, floorTile } from "./tile";
 import { Entity } from "./entity";
 import { Scheduler, Engine, FOV } from "rot-js";
 import Simple from "rot-js/lib/scheduler/simple";
-import { radroachTemplate, moleratTemplate, superMutantTemplate } from "./main";
+import { Item } from "./item";
+import { EntityRepository } from "./repositories/entities";
+import { ItemRepository } from "./repositories/items";
 
 export class Map {
   tiles: any[];
@@ -10,6 +12,7 @@ export class Map {
   height: number;
   depth: number;
   entities: { [key: string]: Entity };
+  items: { [key: string]: Item };
   scheduler: Simple;
   engine: any;
   player: Entity;
@@ -21,6 +24,7 @@ export class Map {
     this.width = tiles[0].length;
     this.height = tiles[0][0].length;
     this.entities = {};
+    this.items = {};
     this.scheduler = new Scheduler.Simple();
     this.fov = [];
     this.setupFov();
@@ -31,17 +35,25 @@ export class Map {
     this.addEntityAtRandomPosition(this.player, 0);
     for (let z = 0; z < this.depth; z++) {
       for (let i = 0; i < 10; i++) {
-        this.addEntityAtRandomPosition(new Entity(radroachTemplate), z);
+        this.addEntityAtRandomPosition(EntityRepository.create("radroach"), z);
       }
     }
     for (let z = 0; z < this.depth; z++) {
       for (let i = 0; i < 4; i++) {
-        this.addEntityAtRandomPosition(new Entity(moleratTemplate), z);
+        this.addEntityAtRandomPosition(EntityRepository.create("molerat"), z);
       }
     }
     for (let z = 0; z < this.depth; z++) {
       for (let i = 0; i < 1; i++) {
-        this.addEntityAtRandomPosition(new Entity(superMutantTemplate), z);
+        this.addEntityAtRandomPosition(
+          EntityRepository.create("super mutant"),
+          z
+        );
+      }
+    }
+    for (let z = 0; z < this.depth; z++) {
+      for (let i = 0; i < 5; i++) {
+        this.addItemAtRandomPosition(ItemRepository.create("stimpak"), z);
       }
     }
   }
@@ -163,6 +175,31 @@ export class Map {
   };
   getEntityAt = function(x: number, y: number, z: number) {
     return this.entities[`${x},${y},${z}`];
+  };
+  setItemsAt = function(x: number, y: number, z: number, items: Item[]) {
+    const key = `${x},${y},${z}`;
+    if (!items.length) {
+      if (this.items[key]) {
+        delete this.items[key];
+      }
+    } else {
+      this.items[key] = items;
+    }
+  };
+  addItemAt = function(x: number, y: number, z: number, item: Item) {
+    const key = `${x},${y},${z}`;
+    if (this.items[key]) {
+      this.items[key].push(item);
+    } else {
+      this.items[key] = [item];
+    }
+  };
+  addItemAtRandomPosition = function(item: Item, z: number) {
+    const position = this.getRandomFloorPosition(z);
+    this.addItemAt(position.x, position.y, position.z, item);
+  };
+  getItemsAt = function(x: number, y: number, z: number) {
+    return this.items[`${x},${y},${z}`];
   };
   setupFov = function() {
     const map = this;

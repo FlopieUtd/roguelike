@@ -2,6 +2,8 @@ import { Map } from "./map";
 import { game } from "./main";
 import { stairsUpTile, stairsDownTile } from "./tile";
 import { screen } from "./screens";
+import { Item } from "./item";
+import { ItemRepository } from "./repositories/items";
 
 export interface Mixin {
   [key: string]: any;
@@ -95,9 +97,7 @@ export const playerActor = {
   groupName: "Actor",
   act: function() {
     if (this.getHp() < 1) {
-      console.log("die");
       screen.playScreen.setGameOver(true);
-      console.log(screen.playScreen.gameOver);
       game.sendMessage(this, "You have died... Press [Enter] to continue!");
     }
     game.refresh();
@@ -133,5 +133,68 @@ export const sight = {
   },
   getSightRadius: function() {
     return this.sightRadius;
+  }
+};
+
+export const inventoryHolder = {
+  name: "InventoryHolder",
+  init: function(template: any) {
+    const { inventorySlots } = template;
+    this.inventorySlots = inventoryHolder || 10;
+    this.items = new Array(inventorySlots);
+  },
+  getItems: function() {
+    return this.items;
+  },
+  getItem: function(i: number) {
+    return this.items[i];
+  },
+  addItem: function(item: Item) {
+    for (let i = 0; i < this.items.length; i++) {
+      if (!this.items[i]) {
+        this.items[i] = item;
+        return true;
+      }
+    }
+  },
+  removeItem: function(i: number) {
+    this.items[i] = null;
+  },
+  canAddItem: function() {
+    for (let i = 0; i < this.items.length; i++) {
+      if (!this.items[i]) {
+        return true;
+      }
+    }
+    return false;
+  },
+  pickupItems: function(indices: number[]) {
+    const mapItems = this.map.getItemsAt(this.getX(), this.getY(), this.getZ());
+    let added = 0;
+    for (let i = 0; i < indices.length; i++) {
+      if (this.addItem(mapItems[indices[i] - added])) {
+        mapItems.splice(indices[i] - added, 1);
+        added++;
+      } else {
+        break;
+      }
+    }
+    this.map.setItemsAt(this.getX(), this.getY(), this.getZ(), mapItems);
+    return added === indices.length;
+  },
+  dropItem: function(i: number) {
+    console.log("dropping", this.items, i, this.items[i]);
+    if (this.items[i]) {
+      console.log("items", this.items);
+      if (this.map) {
+        this.map.addItemAt(
+          this.getX(),
+          this.getY(),
+          this.getZ(),
+          this.items[i]
+        );
+      }
+      this.removeItem(i);
+    }
   }
 };

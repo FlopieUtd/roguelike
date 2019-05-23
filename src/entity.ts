@@ -78,6 +78,14 @@ export class Entity extends Glyph {
       }
     } else if (tile.getIsWalkable()) {
       this.setPosition(x, y, z);
+      const items = this.getMap().getItemsAt(x, y, z);
+      if (items) {
+        if (items.length === 1) {
+          game.sendMessage(this, `You see ${items[0].describeA()}.`);
+        } else {
+          game.sendMessage(this, `There are several objects here.`);
+        }
+      }
       return true;
     }
     return false;

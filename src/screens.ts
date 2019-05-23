@@ -1,8 +1,10 @@
 import { Color, Display, Map as RotMap } from "rot-js";
-import { game, playerTemplate } from "./main";
+import { game, Game } from "./main";
+import { playerTemplate } from "./repositories/entities";
 import { Map } from "./map";
 import { Entity } from "./entity";
 import { Builder } from "./builder";
+import { Item } from "./item";
 
 export interface Screen {
   map?: Map | null;
@@ -10,16 +12,105 @@ export interface Screen {
   centerY?: number;
   player?: any;
   gameOver?: boolean;
+  subScreen?: any;
   move?: (x: number, y: number, z: number) => void;
-  enter: () => void;
-  exit: () => void;
+  enter?: () => void;
+  exit?: () => void;
   render: (display: Display) => void;
   handleInput: (inputType: string, inputData: KeyboardEvent) => void;
   setGameOver?: (gameOver: boolean) => void;
+  setSubscreen?: (subScreen: any) => void;
 }
 
 export interface ScreenObject {
   [key: string]: Screen;
+}
+
+export class ItemListScreen {
+  caption: string;
+  onAccept?: () => void;
+  canSelect: boolean;
+  canSelectMultiple?: boolean;
+  constructor(template: any) {
+    const { caption, onAccept, canSelect, canSelectMultiple } = template;
+    this.caption = caption;
+    this.onAccept = onAccept;
+    this.canSelect = canSelect;
+    this.canSelectMultiple = canSelectMultiple;
+  }
+  setup = function(player: any, items: any) {
+    this.player = player;
+    this.items = items;
+    this.selectedIndices = {};
+  };
+
+  render = function(display: Display) {
+    const letters = "abcdefghijklmnopqrstuvwxyz";
+    display.drawText(0, 0, this.caption);
+    let row = 0;
+    for (let i = 0; i < this.items.length; i++) {
+      if (this.items[i]) {
+        const letter = letters.substring(i, i + 1);
+        const selectionState =
+          this.canSelect && this.canSelectMultiple && this.selectedIndices[i]
+            ? "+"
+            : "-";
+        display.drawText(
+          0,
+          2 + row,
+          `${letter} ${selectionState} ${this.items[i].describe()}`
+        );
+      }
+      row++;
+    }
+  };
+
+  handleAccept = function() {
+    const selectedItems: { [key: string]: Item } = {};
+    for (let key in this.selectedIndices) {
+      selectedItems[key] = this.items[key];
+    }
+    screen.playScreen.setSubscreen(undefined);
+    if (this.onAccept(selectedItems)) {
+      this.player
+        .getMap()
+        .getEngine()
+        .unlock();
+    }
+  };
+
+  handleInput = function(inputType: string, inputData: KeyboardEvent) {
+    if (inputType === "keydown") {
+      if (
+        inputData.code === "Escape" ||
+        (inputData.code === "Enter" &&
+          (!this.canSelect || Object.keys(this.selectedIndices).length === 0))
+      ) {
+        screen.playScreen.setSubscreen(undefined);
+      } else if (inputData.code === "Enter") {
+        this.handleAccept();
+      } else if (
+        this.canSelect &&
+        inputData.keyCode >= 65 &&
+        inputData.keyCode <= 90
+      ) {
+        const index = inputData.keyCode - 65;
+        if (this.items[index]) {
+          if (this.canSelectMultiple) {
+            if (this.selectedIndices[index]) {
+              delete this.selectedIndices[index];
+            } else {
+              this.selectedIndices[index] = true;
+            }
+            game.refresh();
+          } else {
+            this.selectedIndices[index] = true;
+            this.handleAccept();
+          }
+        }
+      }
+    }
+  };
 }
 
 export const screen: ScreenObject = {
@@ -46,6 +137,7 @@ export const screen: ScreenObject = {
     map: null,
     player: null,
     gameOver: false,
+    subScreen: null,
     move: function(dX: number, dY: number, dZ: number) {
       const newX = this.player.getX() + dX;
       const newY = this.player.getY() + dY;
@@ -66,6 +158,10 @@ export const screen: ScreenObject = {
       console.info("Exited play screen");
     },
     render: function(display) {
+      if (this.subScreen) {
+        this.subScreen.render(display);
+        return;
+      }
       const screenWidth = game.getScreenWidth();
       const screenHeight = game.getScreenHeight();
       const topLeftXTemp = Math.max(0, this.player.getX() - screenWidth / 2);
@@ -95,10 +191,20 @@ export const screen: ScreenObject = {
       for (let x = topLeftX; x < topLeftX + screenWidth; x++) {
         for (let y = topLeftY; y < topLeftY + screenHeight; y++) {
           if (map.isExplored(x, y, currentDepth)) {
-            const tile = this.map.getTile(x, y, currentDepth);
-            const foreground = visibleCells[`${x},${y}`]
-              ? tile.getForeground()
-              : "#032033";
+            let tile = this.map.getTile(x, y, currentDepth);
+            let foreground = tile.getForeground();
+            if (visibleCells[`${x},${y}`]) {
+              const items = map.getItemsAt(x, y, currentDepth);
+              if (items) {
+                tile = items[items.length - 1];
+              }
+              if (map.getEntityAt(x, y, currentDepth)) {
+                tile = map.getEntityAt(x, y, currentDepth);
+              }
+              foreground = tile.getForeground();
+            } else {
+              foreground = "#032033";
+            }
             display.draw(
               x - topLeftX,
               y - topLeftY,
@@ -138,19 +244,21 @@ export const screen: ScreenObject = {
           messageY++;
         }, 0);
       });
-      const hpStats = `%c{white}%b{black}HP: ${this.player.getHp()}/${this.player.getMaxHp()}`;
+      const hp = this.player.getHp() > 0 ? this.player.getHp() : 0;
+      const hpStats = `%c{white}%b{black}HP: ${hp}/${this.player.getMaxHp()}`;
       const levelStats = `%c{white}%b{black}Level: ${this.player.getZ()}`;
       display.drawText(0, screenHeight, hpStats);
       display.drawText(screenWidth - 8, screenHeight, levelStats);
     },
     handleInput: function(inputType, inputData) {
-      console.log(inputData.keyCode);
-
       if (this.gameOver) {
-        console.log("game over", console.log());
         if (inputType === "keydown" && inputData.keyCode === 13) {
           game.switchScreen(screen.loseScreen);
         }
+        return;
+      }
+      if (this.subScreen) {
+        this.subScreen.handleInput(inputType, inputData);
         return;
       }
       if (inputType === "keydown") {
@@ -159,17 +267,68 @@ export const screen: ScreenObject = {
         } else if (inputData.code === "Escape") {
           game.switchScreen(screen.loseScreen);
         } else {
-          if (inputData.code === "KeyA" || inputData.code === "ArrowLeft") {
+          if (inputData.code === "ArrowLeft") {
             this.move(-1, 0, 0);
           }
-          if (inputData.code === "KeyD" || inputData.code === "ArrowRight") {
+          if (inputData.code === "ArrowRight") {
             this.move(1, 0, 0);
           }
-          if (inputData.code === "KeyW" || inputData.code === "ArrowUp") {
+          if (inputData.code === "ArrowUp") {
             this.move(0, -1, 0);
           }
-          if (inputData.code === "KeyS" || inputData.code === "ArrowDown") {
+          if (inputData.code === "ArrowDown") {
             this.move(0, 1, 0);
+          }
+          if (inputData.code === "KeyI") {
+            if (!this.player.getItems().filter((x: any) => x).length) {
+              game.sendMessage(this.player, "You are not carrying anything!");
+              game.refresh();
+            } else {
+              // @ts-ignore
+              screen.inventoryScreen.setup(this.player, this.player.getItems());
+              this.setSubscreen(screen.inventoryScreen);
+            }
+            return;
+          }
+          if (inputData.code === "KeyD") {
+            if (!this.player.getItems().filter((x: any) => x).length) {
+              game.sendMessage(this.player, "You have nothing to drop!");
+              game.refresh();
+            } else {
+              // @ts-ignore
+              screen.dropScreen.setup(this.player, this.player.getItems());
+              this.setSubscreen(screen.dropScreen);
+            }
+            return;
+          }
+          if (inputData.code === "Comma") {
+            const items = this.map.getItemsAt(
+              this.player.getX(),
+              this.player.getY(),
+              this.player.getZ()
+            );
+            if (!items) {
+              game.sendMessage(this.player, "There is nothing to pick up.");
+              game.refresh();
+            } else if (items.length === 1) {
+              const item = items[0];
+              if (this.player.pickupItems([0])) {
+                game.sendMessage(
+                  this.player,
+                  `You pick up ${item.describeA()}.`
+                );
+                game.refresh();
+              } else {
+                game.sendMessage(this.player, "Your inventory is full!");
+              }
+            } else {
+              // @ts-ignore
+              screen.pickupScreen.setup(this.player, items);
+              this.setSubscreen(screen.pickupScreen);
+              return;
+            }
+
+            return;
           }
           this.map.getEngine().unlock();
         }
@@ -187,8 +346,36 @@ export const screen: ScreenObject = {
     },
     setGameOver: function(gameOver: boolean) {
       this.gameOver = gameOver;
+    },
+    setSubscreen: function(subScreen) {
+      this.subScreen = subScreen;
+      game.refresh();
     }
   },
+  inventoryScreen: new ItemListScreen({
+    caption: "Inventory",
+    canSelect: false
+  }),
+  pickupScreen: new ItemListScreen({
+    caption: "Choose the items you want to pick up.",
+    canSelect: true,
+    canSelectMultiple: true,
+    onAccept: function(selectedItems: any) {
+      if (!this.player.pickupItems(Object.keys(selectedItems))) {
+        game.sendMessage(this.player, "Your inventory is full!");
+      }
+      return true;
+    }
+  }),
+  dropScreen: new ItemListScreen({
+    caption: "Choose the items you want to drop.",
+    canSelect: true,
+    canSelectMultiple: false,
+    onAccept: function(selectedItems: any) {
+      this.player.dropItem(Object.keys(selectedItems)[0]);
+      return true;
+    }
+  }),
   winScreen: {
     enter: function() {
       console.info("Entered win screen");
